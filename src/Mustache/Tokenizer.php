@@ -25,6 +25,7 @@ class Mustache_Tokenizer
     const T_SECTION      = '#';
     const T_INVERTED     = '^';
     const T_END_SECTION  = '/';
+    const T_HELPER       = '_h';
     const T_COMMENT      = '!';
     const T_PARTIAL      = '>';
     const T_PARENT       = '<';
@@ -63,6 +64,7 @@ class Mustache_Tokenizer
     const END     = 'end';
     const INDENT  = 'indent';
     const NODES   = 'nodes';
+    const ARGS    = 'args';
     const VALUE   = 'value';
     const FILTERS = 'filters';
 
@@ -157,6 +159,27 @@ class Mustache_Tokenizer
                             self::LINE  => $this->line,
                             self::INDEX => ($this->tagType === self::T_END_SECTION) ? $this->seenTag - $this->otagLen : $i + $this->ctagLen,
                         );
+
+                        // check if tag is a helper function and has arguments
+                        if ( substr_count( trim( $this->buffer ), ' ' ) > 0 ) {
+                            $arguments = explode(' ', trim( $this->buffer ) );
+                            $helper = array_shift( $arguments );
+
+                            $arguments = ' '. implode(' ', $arguments) . ' ';
+                            $arguments = str_replace(' "', ' |:', $arguments);
+                            $arguments = str_replace('" ', '| ', $arguments);
+                            $arguments = str_replace(" '", ' |:', $arguments);
+                            $arguments = str_replace("' ", '| ', $arguments);
+                            $arguments = array_filter( array_map( 'trim', explode('|', trim( $arguments ) ) ) );
+
+                            foreach($arguments as &$arg ) {
+                                $arg = is_numeric($arg) ? ':' . $arg : $arg;
+                            }
+
+                            $token[self::TYPE] = self::T_HELPER;
+                            $token[self::NAME] = $helper;
+                            $token[self::ARGS] = $arguments;
+                        }
 
                         if ($this->tagType === self::T_UNESCAPED) {
                             // Clean up `{{{ tripleStache }}}` style tokens.

@@ -172,7 +172,7 @@ abstract class Mustache_Template
     {
         if (($this->strictCallables ? is_object($value) : !is_string($value)) && is_callable($value)) {
             return $this->mustache
-                ->loadLambda((string) call_user_func($value))
+                ->loadLambda((string) call_user_func_array($value, array_slice(func_get_args(), 3)))
                 ->renderInternal($context, $indent);
         }
 

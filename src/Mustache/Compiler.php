@@ -173,6 +173,14 @@ class Mustache_Compiler
                     $code .= $this->text($node[Mustache_Tokenizer::VALUE], $level);
                     break;
 
+                case Mustache_Tokenizer::T_HELPER:
+                    $code .= $this->helper(
+                        $node[Mustache_Tokenizer::NAME],
+                        isset($node[Mustache_Tokenizer::ARGS]) ? $node[Mustache_Tokenizer::ARGS] : array(),
+                        $level
+                    );
+                    break;
+
                 default:
                     throw new Mustache_Exception_SyntaxException(sprintf('Unknown token type: %s', $node[Mustache_Tokenizer::TYPE]), $node);
             }
@@ -517,6 +525,39 @@ class Mustache_Compiler
         $value   = $escape ? $this->getEscape() : '$value';
 
         return sprintf($this->prepare(self::VARIABLE, $level), $method, $id, $filters, $this->flushIndent(), $value);
+    }
+
+    const HELPER_CALL = '
+        $buffer .= $this->resolveValue($context->%s("%s"), $context, $indent, %s);%s
+    ';
+
+    /**
+     * Generate Mustache Template helper interpolation PHP source.
+     *
+     * @param string   $id        Helper function name
+     * @param string[] $arguments Array of arguments
+     * @param int      $level
+     *
+     * @return string Generated helper interpolation PHP source
+     */
+    private function helper($id, $arguments, $level) {
+
+        // clean the arguments before eval
+        foreach ($arguments as &$value) {
+            if (strpos($value, ':') === FALSE) {
+                $method = $this->getFindMethod($value);
+                $value = sprintf( '$context->%s("%s")', $method, $value );
+            } else {
+                $value = str_replace( array(":", "'", '"', '<', '>', '(', ')', '$', 'php'), '', $value );
+                if ( ! is_numeric( $value ) ) {
+                    $value = "'". $value . "'";
+                }
+            }
+        }
+
+        $arguments = implode(', ', $arguments);
+
+        return sprintf($this->prepare(self::HELPER_CALL, $level), 'find', $id, $arguments, $this->flushIndent());
     }
 
     const FILTER = '
